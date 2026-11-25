@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>智厨小助手 · AI 食材菜谱生成器</title>
+<meta name="description" content="输入冰箱里现有的食材与忌口，AI 生成可直接下厨的菜谱、营养估算与忌口规避提示。" />
+<style>
+  :root{
+    --cream:#FBF8F1;
+    --paper:#FFFFFF;
+    --ink:#20261F;
+    --muted:#6E7568;
+    --green-900:#1B4735;
+    --green-700:#256B4F;
+    --green-500:#3B8F69;
+    --green-200:#CFE4D7;
+    --green-100:#E9F2EC;
+    --amber:#D9902F;
+    --amber-100:#FBF0DE;
+    --line:#E4E9DE;
+    --radius:16px;
+    --shadow:0 2px 4px rgba(31,60,45,.04), 0 12px 28px rgba(31,60,45,.07);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none !important}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",system-ui,sans-serif;
+    background:
+      radial-gradient(900px 420px at 88% -6%, #E7F1E7 0%, rgba(231,241,231,0) 62%),
+      radial-gradient(720px 360px at 4% 6%, #FDF3E2 0%, rgba(253,243,226,0) 60%),
+      var(--cream);
+    color:var(--ink);
+    line-height:1.7;
+    min-height:100vh;
+    padding:0 20px 56px;
+  }
+  .wrap{max-width:1120px;margin:0 auto}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:28px 4px 22px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:14px}
+  .mark{
+    width:52px;height:52px;border-radius:15px;flex:0 0 auto;
+    background:linear-gradient(150deg,var(--green-700),var(--green-900));
+    display:grid;place-items:center;box-shadow:0 8px 18px rgba(27,71,53,.22)
+  }
+  .mark svg{width:29px;height:29px}
+  h1{font-size:25px;line-height:1.25;letter-spacing:.4px;color:var(--green-900);font-weight:700}
+  .sub{font-size:13px;color:var(--muted);margin-top:3px;letter-spacing:.3px}
+  .badge{
+    font-size:12px;color:var(--green-700);background:var(--green-100);
+    border:1px solid var(--green-200);padding:7px 13px;border-radius:99px;white-space:nowrap
+  }
+
+  /* ---------- layout ---------- */
+  .board{display:grid;grid-template-columns:376px 1fr;gap:22px;align-items:start}
+
+  .card{
+    background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+  .panel{padding:22px 20px 24px}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .panel-head h2{font-size:16px;color:var(--green-900);letter-spacing:.5px}
+  .panel-head span{font-size:12px;color:var(--muted)}
+
+  .field{margin-bottom:18px}
+  .label{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+  .num{font-size:11px;color:var(--green-500);font-weight:700;letter-spacing:.8px}
+  .label b{font-size:14px;font-weight:600;color:#2B3229}
+  .label i{font-style:normal;font-size:11.5px;color:#9AA196}
+
+  textarea,input,select,button{font-family:inherit;font-size:14px;color:var(--ink)}
+  textarea{
+    width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:11px;
+    background:#FCFCF9;resize:vertical;line-height:1.65;min-height:74px;
+    transition:border-color .18s,box-shadow .18s;
+  }
+  textarea:focus,select:focus,input:focus{outline:none;border-color:var(--green-500);box-shadow:0 0 0 3px rgba(59,143,105,.13);background:#fff}
+  textarea::placeholder{color:#AEB5AA}
+
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+  .chip{
+    font-size:12.5px;padding:5px 11px;border-radius:99px;border:1px dashed #C8D6C8;
+    background:#fff;color:var(--green-700);cursor:pointer;transition:.15s
+  }
+  .chip:hover{background:var(--green-100);border-style:solid;transform:translateY(-1px)}
+  .chip.on{background:var(--green-700);border:1px solid var(--green-700);color:#fff}
+
+  .seg{display:flex;gap:6px;background:#F3F6F1;border:1px solid var(--line);padding:4px;border-radius:11px}
+  .seg button{
+    flex:1;padding:7px 4px;border:0;background:transparent;border-radius:8px;
+    font-size:13px;color:#6C7367;cursor:pointer;transition:.15s
+  }
+  .seg button.on{background:#fff;color:var(--green-900);font-weight:600;box-shadow:0 1px 4px rgba(31,60,45,.11)}
+
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#FCFCF9;height:38px}
+  .stepper button{width:34px;height:100%;border:0;background:#F1F5EF;color:var(--green-700);font-size:16px;cursor:pointer;line-height:1}
+  .stepper button:hover{background:var(--green-100)}
+  .stepper span{flex:1;text-align:center;font-size:13.5px;font-weight:600}
+  select{width:100%;height:38px;padding:0 10px;border:1px solid var(--line);border-radius:11px;background:#FCFCF9;cursor:pointer}
+
+  .switch{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:#FCFCF9}
+  .switch p{font-size:12.5px;color:#5C6459;line-height:1.45}
+  .switch p b{display:block;font-size:13.5px;color:#2B3229;font-weight:600}
+  .track{width:42px;height:23px;border-radius:99px;background:#D5DDD2;position:relative;cursor:pointer;flex:0 0 auto;transition:.2s}
+  .track::after{content:"";position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:.2s}
+  .track.on{background:var(--green-500)}
+  .track.on::after{transform:translateX(19px)}
+
+  .actions{display:flex;gap:10px;margin-top:22px}
+  .btn{
+    border:0;border-radius:11px;cursor:pointer;font-size:14.5px;font-weight:600;
+    padding:12px 18px;transition:transform .15s,box-shadow .15s,background .15s
+  }
+  .btn-main{flex:1;color:#fff;background:linear-gradient(140deg,var(--green-500),var(--green-700));box-shadow:0 8px 20px rgba(37,107,79,.24)}
+  .btn-main:hover{transform:translateY(-1px);box-shadow:0 11px 24px rgba(37,107,79,.3)}
+  .btn-main:active{transform:translateY(0)}
+  .btn-ghost{background:#F2F5F0;color:#5B6357}
+  .btn-ghost:hover{background:#E8EDE5}
+  .hint{font-size:11.5px;color:#9AA196;margin-top:11px;line-height:1.6}
+
+  /* ---------- result ---------- */
+  .result{padding:22px 22px 26px;min-height:640px;display:flex;flex-direction:column}
+  .res-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:6px}
+  .res-head h2{font-size:16px;color:var(--green-900);letter-spacing:.5px}
+  .res-head .tools{display:flex;gap:8px}
+  .mini{
+    font-size:12.5px;padding:7px 12px;border:1px solid var(--line);border-radius:99px;
+    background:#fff;color:var(--green-700);cursor:pointer;transition:.15s
+  }
+  .mini:hover{background:var(--green-100);border-color:var(--green-200)}
+
+  .ai-line{
+    margin-top:14px;background:linear-gradient(135deg,#F3F8F2,#FBF7EC);
+    border:1px solid #DCE8DC;border-left:3px solid var(--green-500);
+    border-radius:0 11px 11px 0;padding:12px 14px;font-size:13.5px;color:#40493D;line-height:1.7
+  }
+  .ai-line em{font-style:normal;color:var(--green-700);font-weight:600}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0 4px}
+  .stat{background:#F7FAF5;border:1px solid #E6EEE3;border-radius:12px;padding:11px 13px}
+  .stat b{display:block;font-size:19px;color:var(--green-900);letter-spacing:.3px;line-height:1.35}
+  .stat b small{font-size:11px;font-weight:500;color:var(--muted);margin-left:2px}
+  .stat span{font-size:11.5px;color:var(--muted)}
+
+  .cards{display:grid;gap:16px;margin-top:18px}
+
+  .recipe{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(31,60,45,.05)}
+  .recipe-top{display:flex;gap:14px;padding:16px 16px 0}
+  .rno{
+    width:30px;height:30px;border-radius:9px;background:var(--green-100);color:var(--green-700);
+    font-size:13px;font-weight:700;display:grid;place-items:center;flex:0 0 auto;margin-top:2px
+  }
+  .rtitle{flex:1;min-width:0}
+  .rtitle h3{font-size:17px;color:#1F2A22;letter-spacing:.4px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .match{font-size:11px;font-weight:600;color:#8A5A10;background:var(--amber-100);border:1px solid #F0DDBB;border-radius:99px;padding:2px 8px}
+  .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+  .tag{font-size:11.5px;color:#5E6759;background:#F2F5F0;border-radius:6px;padding:2px 8px}
+  .tag.good{color:var(--green-700);background:var(--green-100)}
+
+  .recipe-body{padding:14px 16px 16px}
+  .grid2{display:grid;grid-template-columns:1fr 1.32fr;gap:16px}
+  .block-t{font-size:12px;color:var(--green-700);font-weight:700;letter-spacing:.6px;margin-bottom:7px;display:flex;align-items:center;gap:6px}
+  .block-t::before{content:"";width:3px;height:12px;border-radius:2px;background:var(--green-500);display:inline-block}
+  ul.ing{list-style:none;font-size:13px;color:#3F463C}
+  ul.ing li{display:flex;justify-content:space-between;gap:8px;padding:3.5px 0;border-bottom:1px dashed #EEF2EB}
+  ul.ing li:last-child{border-bottom:0}
+  ul.ing li span:last-child{color:var(--muted);font-size:12.5px;white-space:nowrap}
+  ul.ing li.miss span:first-child{color:#9FA79B}
+  ul.ing li.miss span:last-child{color:#C08A2E}
+  ol.steps{list-style:none;counter-reset:s;font-size:13px;color:#3F463C}
+  ol.steps li{counter-increment:s;position:relative;padding-left:20px;padding-bottom:6px;line-height:1.65}
+  ol.steps li::before{
+    content:counter(s);position:absolute;left:0;top:2px;width:15px;height:15px;border-radius:50%;
+    background:#EDF3EC;color:var(--green-700);font-size:10.5px;font-weight:700;display:grid;place-items:center
+  }
+  .nutri{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;padding-top:11px;border-top:1px solid #F1F4EE;font-size:12.5px;color:#596253}
+  .nutri b{color:var(--green-900);font-size:13.5px;margin-right:3px}
+  .note{
+    margin-top:11px;font-size:12.5px;line-height:1.6;color:#77571F;
+    background:#FCF7EC;border:1px solid #F2E4C8;border-radius:9px;padding:8px 11px
+  }
+  .rfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+  .rfoot button{
+    font-size:12.5px;padding:6px 13px;border-radius:8px;border:1px solid var(--line);
+    background:#fff;color:#5B6357;cursor:pointer;transition:.15s
+  }
+  .rfoot button:hover{background:var(--green-100);border-color:var(--green-200);color:var(--green-700)}
+  .rfoot button.fav.on{background:var(--green-700);border-color:var(--green-700);color:#fff}
+
+  /* ---------- empty ---------- */
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:46px 18px;gap:14px}
+  .empty .art{width:132px;height:132px;border-radius:50%;background:linear-gradient(150deg,#F2F8F0,#FBF3E5);display:grid;place-items:center}
+  .empty h3{font-size:15.5px;color:#414A3E;font-weight:600}
+  .empty p{font-size:13px;color:#8A9185;max-width:330px;line-height:1.8}
+  .empty .flow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;font-size:12px;color:var(--green-700);margin-top:4px}
+  .empty .flow span{background:#fff;border:1px solid var(--line);border-radius:99px;padding:5px 11px}
+
+  footer{margin-top:30px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;font-size:12px;color:#9AA196;padding:0 4px}
+  footer b{color:#6E7568;font-weight:600}
+
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);opacity:0;pointer-events:none;
+    background:#1E2A22;color:#fff;font-size:13px;padding:9px 16px;border-radius:99px;
+    box-shadow:0 10px 26px rgba(0,0,0,.22);transition:.22s;z-index:9
+  }
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:900px){
+    .board{grid-template-columns:1fr}
+    .result{min-height:auto}
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .grid2{grid-template-columns:1fr}
+  }
+  @media (max-width:560px){
+    body{padding:0 13px 40px}
+    h1{font-size:20px}
+    .mark{width:44px;height:44px;border-radius:13px}
+    .mark svg{width:25px;height:25px}
+    .sub{font-size:11.5px}
+    .panel{padding:18px 15px 20px}
+    .result{padding:18px 15px 22px}
+    .row2{grid-template-columns:1fr}
+    .res-head .tools{flex-direction:column}
+    .recipe-top{padding:14px 13px 0}
+    .recipe-body{padding:12px 13px 14px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#F7FBF6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12h16a8 8 0 0 1-16 0Z" fill="rgba(255,255,255,.14)"/>
+          <path d="M6 12c0-3 2.4-5.4 5.4-5.4 2.2 0 4 1.2 4.9 3"/>
+          <path d="M9.2 8.2c.2-1.6-.4-2.8-1.4-3.4"/>
+          <path d="M13.4 7.6c1.2-1.2 1.6-2.4 1.2-3.6"/>
+          <path d="M3 20.2h18"/>
+        </svg>
+      </div>
+      <div>
+        <h1>智厨小助手</h1>
+        <p class="sub">AI 食材菜谱生成器 · 冰箱里有什么，就做什么</p>
+      </div>
+    </div>
+    <div class="badge">《人工智能基础与应用》课程作业 · 演示版</div>
+  </header>
+
+  <main class="board">
+    <!-- ============ 输入区 ============ -->
+    <section class="card panel" aria-label="条件输入区">
+      <div class="panel-head">
+        <h2>告诉我你的厨房现状</h2>
+        <span>1 分钟填完</span>
+      </div>
+
+      <div class="field">
+        <div class="label"><span class="num">01</span><b>现有食材</b><i>用顿号或逗号分隔</i></div>
+        <textarea id="ingredients" placeholder="例如：鸡蛋、西红柿、土豆、青菜"></textarea>
+        <div class="chips" id="chips">
+          <button class="chip" type="button">鸡蛋</button>
+          <button class="chip" type="button">西红柿</button>
+          <button class="chip" type="button">土豆</button>
+          <button class="chip" type="button">豆腐</button>
+          <button class="chip" type="button">青菜</button>
+          <button class="chip" type="button">香菇</button>
+          <button class="chip" type="button">鸡胸肉</button>
+          <button class="chip" type="button">虾仁</button>
+          <button class="chip" type="button">洋葱</button>
+          <button class="chip" type="button">胡萝卜</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label"><span class="num">02</span><b>忌口与过敏</b><i>可选</i></div>
+        <textarea id="avoids" placeholder="例如：不吃辣、不吃香菜、海鲜过敏"></textarea>
+      </div>
+
+      <div class="field">
+        <div class="label"><span class="num">03</span><b>口味偏好</b></div>
+        <div class="seg" id="tasteSeg">
+          <button type="button" class="on" data-taste="不限">不限</button>
+          <button type="button" data-taste="清淡">清淡</button>
+          <button type="button" data-taste="酸辣">酸辣</button>
+          <button type="button" data-taste="重口">重口</button>
+        </div>
+      </div>
+
+      <div class="field row2">
+        <div>
+          <div class="label"><span class="num">04</span><b>用餐人数</b></div>
+          <div class="stepper">
+            <button type="button" id="minus" aria-label="减少">−</button>
+            <span id="people">2 人</span>
+            <button type="button" id="plus" aria-label="增加">＋</button>
+          </div>
+        </div>
+        <div>
+          <div class="label"><span class="num">05</span><b>可用时长</b></div>
+          <select id="timeLimit">
+            <option value="15">15 分钟以内</option>
+            <option value="30" selected>30 分钟以内</option>
+            <option value="999">不限时长</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="switch" id="lowcalSwitch" role="switch" aria-checked="false" tabindex="0">
+        <div>
+          <p><b>低卡优先</b>偏向少油、蒸煮类做法</p>
+        </div>
+        <div class="track" id="track"></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-main" id="genBtn">生成我的菜谱</button>
+        <button class="btn btn-ghost" id="resetBtn">清空</button>
+      </div>
+      <p class="hint">生成结果由页面内置菜谱库与匹配规则实时计算，食材不足时会给出「需补充」提示。</p>
+    </section>
+
+    <!-- ============ 结果区 ============ -->
+    <section class="card result" aria-label="菜谱结果区">
+      <div class="res-head">
+        <div>
+          <h2>AI 为你配的今日菜单</h2>
+        </div>
+        <div class="tools">
+          <button class="mini" id="againBtn" hidden>换一批</button>
+          <button class="mini" id="copyAllBtn" hidden>复制全部</button>
+        </div>
+      </div>
+
+      <div id="emptyBox" class="empty">
+        <div class="art" aria-hidden="true">
+          <svg width="62" height="62" viewBox="0 0 24 24" fill="none" stroke="#3B8F69" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9" stroke="#CFE4D7"/>
+            <path d="M7.5 13.5h9a4.5 4.5 0 0 1-9 0Z" fill="#E9F2EC"/>
+            <path d="M8 13.5c0-2.6 1.8-4.4 4-4.4"/>
+            <path d="M10.6 10.8c-.4-1.1-.2-2 .4-2.6"/>
+            <path d="M13.6 11c.9-.9 1.2-1.9.9-2.9"/>
+            <path d="M12 17.6v.9M9 18v.9M15 18v.9" opacity=".5"/>
+          </svg>
+        </div>
+        <h3>先填写左边三栏，再点「生成我的菜谱」</h3>
+        <p>我会按你手头食材的匹配度排序，避开你的忌口，并把热量、蛋白质估算一起算给你。</p>
+        <div class="flow"><span>食材匹配</span><span>忌口过滤</span><span>营养估算</span><span>分步做法</span></div>
+      </div>
+
+      <div id="outBox" hidden></div>
+    </section>
+  </main>
+
+  <footer>
+    <div><b>智厨小助手</b> · 单页静态网页（HTML / CSS / JavaScript），无需后端，可直接部署 GitHub Pages</div>
+    <div>营养数据为按常见食材的估算值，仅供配餐参考</div>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   1. 菜谱库：每条记录包含食材、用量、步骤、营养估算与标签
+   ============================================================ */
+const RECIPES = [
+  {
+    id:"tomato-egg", name:"西红柿炒鸡蛋", tastes:["清淡","家常"], minutes:12, difficulty:"简单",
+    kcal:210, protein:14, fat:12, lowcal:false,
+    ing:[["西红柿","2 个"],["鸡蛋","3 个"],["小葱","1 根"]], pantry:"食用油、盐、少许糖",
+    steps:[
+      "鸡蛋打散加一小撮盐，西红柿去蒂切滚刀块，小葱切末。",
+      "热锅下油，倒入蛋液，凝固后划散盛出。",
+      "原锅留底油，下西红柿中火炒出汁水，加少许糖提鲜。",
+      "倒回鸡蛋翻匀，撒葱花出锅。"
+    ],
+    tip:"先炒蛋再炒番茄，蛋更嫩；番茄出汁少可加一勺热水。"
+  },
+  {
+    id:"potato-shred", name:"醋溜土豆丝", tastes:["酸辣","重口"], minutes:15, difficulty:"简单",
+    kcal:180, protein:4, fat:8, lowcal:true,
+    ing:[["土豆","2 个"],["青椒","半个"],["干辣椒","2 个"]], pantry:"白醋、盐、食用油",
+    steps:[
+      "土豆去皮切细丝，清水冲洗两遍去淀粉，泡水备用。",
+      "热锅下油，爆香干辣椒。",
+      "下土豆丝大火快炒 1 分半，沿锅边淋一勺白醋。",
+      "加青椒丝与盐，再炒 30 秒出锅。"
+    ],
+    tip:"土豆丝冲水后沥干再下锅，才不会粘成团。"
+  },
+  {
+    id:"tofu-jiang", name:"家常烧豆腐", tastes:["清淡","家常"], minutes:20, difficulty:"中等",
+    kcal:230, protein:17, fat:14, lowcal:false,
+    ing:[["北豆腐","1 块"],["青椒","1 个"],["蒜","2 瓣"]], pantry:"生抽、盐、淀粉、食用油",
+    steps:[
+      "豆腐切厚片，两面拍少许淀粉。",
+      "平底锅少油，中火把豆腐煎至两面金黄。",
+      "下蒜末、青椒片炒香，加生抽与半碗水。",
+      "小火焖 3 分钟，收汁后出锅。"
+    ],
+    tip:"煎之前拍层薄淀粉，既不易碎又更容易挂汁。"
+  },
+  {
+    id:"mushroom-green", name:"香菇扒青菜", tastes:["清淡"], minutes:12, difficulty:"简单",
+    kcal:120, protein:6, fat:7, lowcal:true,
+    ing:[["鲜香菇","6 朵"],["青菜","300 g"],["蒜","2 瓣"]], pantry:"蚝油、盐、食用油",
+    steps:[
+      "香菇去蒂切十字花刀，青菜洗净对半切。",
+      "水开加少许盐和油，青菜与香菇分别焯 40 秒捞出摆盘。",
+      "锅中少油炒香蒜末，加蚝油、半碗水烧开。",
+      "淋少许水淀粉勾薄芡，浇在菜上即可。"
+    ],
+    tip:"焯水时加几滴油，青菜颜色更翠。"
+  },
+  {
+    id:"egg-steam", name:"嫩滑水蒸蛋", tastes:["清淡"], minutes:15, difficulty:"简单",
+    kcal:150, protein:13, fat:8, lowcal:true,
+    ing:[["鸡蛋","2 个"],["温水","180 ml"],["小葱","1 根"]], pantry:"盐、香油、生抽",
+    steps:[
+      "鸡蛋打散，加盐和 1.5 倍温水搅匀。",
+      "过筛两遍去掉泡沫，倒入浅碗，盖保鲜膜扎几个小孔。",
+      "水开后中小火蒸 10 分钟，关火焖 2 分钟。",
+      "淋生抽与香油，撒葱花。"
+    ],
+    tip:"水与蛋液比例 1.5:1、中小火，是镜面蛋羹的关键。"
+  },
+  {
+    id:"chicken-broccoli", name:"黑椒鸡胸西兰花", tastes:["清淡","重口"], minutes:18, difficulty:"中等",
+    kcal:260, protein:32, fat:9, lowcal:true,
+    ing:[["鸡胸肉","200 g"],["西兰花","半颗"],["蒜","2 瓣"]], pantry:"黑胡椒、生抽、淀粉、食用油",
+    steps:[
+      "鸡胸切条，加生抽、黑胡椒、淀粉抓匀腌 10 分钟。",
+      "西兰花切小朵，沸水焯 1 分钟过凉。",
+      "热锅少油，鸡肉滑炒至变色。",
+      "下蒜末与西兰花翻炒，补黑胡椒与盐出锅。"
+    ],
+    tip:"鸡胸腌时加淀粉锁水，口感不柴。"
+  },
+  {
+    id:"mapo", name:"少油麻婆豆腐", tastes:["重口","酸辣"], minutes:20, difficulty:"中等",
+    kcal:250, protein:18, fat:15, lowcal:false,
+    ing:[["嫩豆腐","1 块"],["牛肉末","80 g"],["蒜苗","2 根"],["豆瓣酱","1 勺"]], pantry:"花椒粉、生抽、淀粉",
+    steps:[
+      "豆腐切块，放盐水中浸 3 分钟捞出。",
+      "锅中少油炒散肉末，下豆瓣酱炒出红油。",
+      "加一碗水烧开，下豆腐小火煮 4 分钟。",
+      "分两次淋水淀粉勾芡，撒蒜苗与花椒粉。"
+    ],
+    tip:"勾芡分两次，汤汁才挂得住豆腐。"
+  },
+  {
+    id:"tomato-tofu-soup", name:"番茄豆腐汤", tastes:["清淡","酸辣"], minutes:15, difficulty:"简单",
+    kcal:130, protein:12, fat:6, lowcal:true,
+    ing:[["西红柿","2 个"],["嫩豆腐","半块"],["鸡蛋","1 个"]], pantry:"盐、白胡椒、香油",
+    steps:[
+      "番茄切块，豆腐切小方，鸡蛋打散。",
+      "少油炒番茄至软烂出汁。",
+      "加两碗水烧开，下豆腐煮 3 分钟。",
+      "淋蛋液成蛋花，加盐与白胡椒，滴香油。"
+    ],
+    tip:"番茄一定要炒到出沙，汤才够浓。"
+  },
+  {
+    id:"potato-beef", name:"土豆炖牛肉", tastes:["重口","家常"], minutes:60, difficulty:"中等",
+    kcal:380, protein:28, fat:18, lowcal:false,
+    ing:[["牛腩","300 g"],["土豆","2 个"],["胡萝卜","1 根"],["洋葱","半个"]], pantry:"生抽、老抽、料酒、八角",
+    steps:[
+      "牛腩切块冷水下锅焯去浮沫。",
+      "少油炒香洋葱，下牛肉块翻炒，烹料酒。",
+      "加生抽、老抽、八角与热水，小火炖 35 分钟。",
+      "下土豆与胡萝卜块，再炖 15 分钟收汁。"
+    ],
+    tip:"全程用热水，冷水会让肉质变紧。"
+  },
+  {
+    id:"cucumber", name:"蒜泥拍黄瓜", tastes:["清淡","酸辣"], minutes:8, difficulty:"简单",
+    kcal:80, protein:2, fat:4, lowcal:true,
+    ing:[["黄瓜","1 根"],["蒜","3 瓣"],["小米辣","1 个"]], pantry:"生抽、香醋、香油、盐",
+    steps:[
+      "黄瓜拍裂切段，撒盐腌 5 分钟后倒掉水。",
+      "蒜压成泥，加生抽、香醋、香油调成汁。",
+      "把料汁与黄瓜拌匀，冷藏 5 分钟更爽口。"
+    ],
+    tip:"腌出水再拌，味道不会被稀释。"
+  },
+  {
+    id:"onion-egg", name:"洋葱炒鸡蛋", tastes:["清淡","家常"], minutes:12, difficulty:"简单",
+    kcal:190, protein:13, fat:12, lowcal:false,
+    ing:[["洋葱","1 个"],["鸡蛋","3 个"]], pantry:"盐、生抽、食用油",
+    steps:[
+      "洋葱切丝，鸡蛋加盐打散。",
+      "热锅炒蛋至半凝固盛出。",
+      "下洋葱丝中火炒到边缘透明。",
+      "倒回鸡蛋，加少许生抽翻匀。"
+    ],
+    tip:"洋葱炒到微微焦边，甜味最足。"
+  },
+  {
+    id:"shrimp-egg", name:"虾仁滑蛋", tastes:["清淡"], minutes:12, difficulty:"中等",
+    kcal:200, protein:22, fat:11, lowcal:true,
+    ing:[["虾仁","150 g"],["鸡蛋","3 个"],["小葱","1 根"]], pantry:"盐、白胡椒、淀粉、食用油",
+    steps:[
+      "虾仁加盐、白胡椒、淀粉抓匀，静置 5 分钟。",
+      "热锅快炒虾仁至变色盛出。",
+      "蛋液加少许水淀粉，倒入锅中中小火推炒。",
+      "蛋液半凝固时回锅虾仁，撒葱花出锅。"
+    ],
+    tip:"蛋液里加水淀粉，滑蛋更嫩更抱虾。"
+  },
+  {
+    id:"cabbage-tofu", name:"白菜豆腐煲", tastes:["清淡","家常"], minutes:25, difficulty:"简单",
+    kcal:170, protein:13, fat:8, lowcal:true,
+    ing:[["白菜","半颗"],["北豆腐","1 块"],["粉丝","1 小把"]], pantry:"盐、白胡椒、香油",
+    steps:[
+      "白菜切段，豆腐切块，粉丝温水泡软。",
+      "锅中少油炒软白菜帮，加热水烧开。",
+      "下豆腐与粉丝煮 8 分钟。",
+      "加盐、白胡椒，淋香油。"
+    ],
+    tip:"先炒白菜帮再煮，汤更甜。"
+  },
+  {
+    id:"celery-dried", name:"芹菜炒香干", tastes:["清淡","家常"], minutes:12, difficulty:"简单",
+    kcal:160, protein:11, fat:9, lowcal:true,
+    ing:[["芹菜","200 g"],["香干","3 块"],["蒜","2 瓣"]], pantry:"盐、生抽、食用油",
+    steps:[
+      "芹菜斜切段，香干切条。",
+      "芹菜沸水焯 30 秒过凉，保持脆感。",
+      "热锅炒香蒜末，下香干炒到边缘微黄。",
+      "下芹菜大火快炒，加盐与生抽。"
+    ],
+    tip:"芹菜先焯后炒，颜色绿且不出水。"
+  },
+  {
+    id:"egg-fried-rice", name:"黄金蛋炒饭", tastes:["家常","清淡"], minutes:12, difficulty:"简单",
+    kcal:420, protein:15, fat:14, lowcal:false,
+    ing:[["隔夜米饭","1 碗"],["鸡蛋","2 个"],["小葱","2 根"],["胡萝卜","半根"]], pantry:"盐、白胡椒、食用油",
+    steps:[
+      "米饭用手抓散，鸡蛋蛋黄蛋白分开，蛋黄拌入米饭。",
+      "热锅下油，蛋白炒散盛出。",
+      "下裹了蛋黄的米饭，中大火炒到粒粒分明。",
+      "加胡萝卜丁、蛋白、盐与胡椒，撒葱花。"
+    ],
+    tip:"隔夜饭 + 蛋黄裹饭，是粒粒金黄的关键。"
+  },
+  {
+    id:"steam-fish", name:"清蒸鲈鱼", tastes:["清淡"], minutes:20, difficulty:"中等",
+    kcal:190, protein:26, fat:8, lowcal:true,
+    ing:[["鲈鱼","1 条"],["姜","4 片"],["小葱","3 根"]], pantry:"蒸鱼豉油、料酒、食用油",
+    steps:[
+      "鱼两面划刀，抹料酒与盐，腹中塞姜片腌 10 分钟。",
+      "盘底垫葱段，水开后大火蒸 8 分钟。",
+      "倒掉盘中腥水，换上新鲜葱丝。",
+      "淋蒸鱼豉油，浇一勺热油激香。"
+    ],
+    tip:"蒸完一定倒掉盘里的水，否则会有腥味。"
+  },
+  {
+    id:"mushroom-soup", name:"菌菇豆腐汤", tastes:["清淡"], minutes:20, difficulty:"简单",
+    kcal:110, protein:9, fat:5, lowcal:true,
+    ing:[["鲜香菇","4 朵"],["蟹味菇","1 盒"],["嫩豆腐","半块"],["小葱","1 根"]], pantry:"盐、白胡椒",
+    steps:[
+      "菌菇洗净撕小，豆腐切块。",
+      "少油把菌菇炒到出水、边缘微焦。",
+      "加开水煮 6 分钟，下豆腐再煮 2 分钟。",
+      "加盐与白胡椒，撒葱花。"
+    ],
+    tip:"菌菇先干炒出香，汤头才鲜。"
+  },
+  {
+    id:"pepper-pork", name:"青椒肉丝", tastes:["重口","家常"], minutes:15, difficulty:"中等",
+    kcal:280, protein:21, fat:16, lowcal:false,
+    ing:[["猪里脊","150 g"],["青椒","2 个"],["蒜","2 瓣"]], pantry:"生抽、淀粉、料酒、食用油",
+    steps:[
+      "里脊切丝，加生抽、料酒、淀粉腌 10 分钟。",
+      "青椒去籽切丝。",
+      "热锅下油，肉丝滑炒至变色盛出。",
+      "下青椒与蒜末炒香，回锅肉丝调味出锅。"
+    ],
+    tip:"肉丝下锅前加一勺油拌开，不易粘连。"
+  },
+  {
+    id:"corn-carrot", name:"胡萝卜玉米粒", tastes:["清淡","家常"], minutes:12, difficulty:"简单",
+    kcal:150, protein:5, fat:6, lowcal:true,
+    ing:[["玉米粒","1 碗"],["胡萝卜","1 根"],["青豆","半碗"]], pantry:"盐、食用油",
+    steps:[
+      "胡萝卜切小丁，与玉米、青豆一起焯 1 分钟。",
+      "热锅少油，下三种食材大火翻炒。",
+      "加盐与少许白胡椒，炒干水分出锅。"
+    ],
+    tip:"先焯后炒，颜色亮、熟得匀。"
+  },
+  {
+    id:"garlic-shrimp", name:"蒜蓉粉丝蒸虾", tastes:["清淡","重口"], minutes:25, difficulty:"中等",
+    kcal:220, protein:24, fat:9, lowcal:true,
+    ing:[["虾","12 只"],["粉丝","1 把"],["蒜","1 头"]], pantry:"生抽、蒸鱼豉油、食用油",
+    steps:[
+      "虾开背去虾线，粉丝泡软铺盘底。",
+      "蒜切末，一半用小火炸香，与另一半生蒜混合。",
+      "蒜蓉加生抽拌成酱，铺在虾上。",
+      "水开大火蒸 6 分钟，淋豉油与热油。"
+    ],
+    tip:"一半炸蒜一半生蒜，香气最有层次。"
+  },
+  {
+    id:"noodle-tomato", name:"番茄鸡蛋面", tastes:["清淡","家常"], minutes:18, difficulty:"简单",
+    kcal:460, protein:20, fat:13, lowcal:false,
+    ing:[["面条","150 g"],["西红柿","2 个"],["鸡蛋","2 个"],["青菜","100 g"]], pantry:"盐、生抽、食用油",
+    steps:[
+      "番茄切块，鸡蛋打散，面条煮至八成熟。",
+      "炒蛋盛出，下番茄炒出汁。",
+      "加两碗水烧开，调入盐与生抽。",
+      "下面条与青菜煮 1 分钟，回锅鸡蛋。"
+    ],
+    tip:"面条单煮再入汤，汤不会浑。"
+  },
+  {
+    id:"eggplant", name:"少油地三鲜", tastes:["重口","家常"], minutes:25, difficulty:"中等",
+    kcal:290, protein:7, fat:18, lowcal:false,
+    ing:[["茄子","1 个"],["土豆","1 个"],["青椒","1 个"],["蒜","3 瓣"]], pantry:"生抽、蚝油、淀粉",
+    steps:[
+      "茄子切滚刀块撒盐腌 5 分钟挤水，土豆切片。",
+      "茄子与土豆分别用少量油煎至表面金黄。",
+      "炒香蒜末，加生抽、蚝油与半碗水烧开。",
+      "下三种食材翻匀，收汁出锅。"
+    ],
+    tip:"茄子先腌出水，能省一半油。"
+  }
+];
+
+/* ============================================================
+   2. 状态与工具
+   ============================================================ */
+const state = { people:2, taste:"不限", limit:30, lowcal:false, page:0, results:[], input:{ing:[], avoids:[]} };
+const $ = (id) => document.getElementById(id);
+
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove("on"), 1900);
+}
+
+function splitList(str){
+  return str.split(/[、,，;；\s\n]+/).map(s => s.trim()).filter(Boolean);
+}
+
+/* ============================================================
+   3. 匹配与生成：食材命中率 + 忌口过滤 + 口味/时长/低卡筛选
+   ============================================================ */
+function filterByAvoids(list, avoids){
+  if(!avoids.length) return { list, blocked: 0 };
+  const stop = avoids.map(a => a.replace(/不吃|不要|过敏|忌|不能吃|少放/g, "").trim()).filter(s => s.length >= 1);
+  const blocked = [];
+  // 忌口词映射到菜谱里可能出现的字样
+  const alias = {
+    "辣":["辣","豆瓣","花椒","麻辣","小米辣"], "香菜":["香菜"], "葱":["小葱","葱","葱花"],
+    "蒜":["蒜"], "姜":["姜"], "海鲜":["虾","蟹","贝"], "牛肉":["牛"], "猪肉":["猪","肉末","里脊"],
+    "鸡蛋":["鸡蛋","蛋"], "牛奶":["奶"], "豆腐":["豆腐"], "花生":["花生"]
+  };
+  const banWords = new Set();
+  stop.forEach(s => {
+    const hit = Object.keys(alias).find(k => s.includes(k));
+    if(hit) alias[hit].forEach(w => banWords.add(w));
+    banWords.add(s);
+  });
+  const kept = list.filter(r => {
+    const text = r.name + r.ing.map(i => i[0]).join("") + r.pantry;
+    for(const w of banWords){ if(w && text.includes(w)){ blocked.push(r.name); return false; } }
+    return true;
+  });
+  return { list: kept, blocked: blocked.length };
+}
+
+function scoreRecipe(recipe, owned){
+  let hit = 0, need = [];
+  recipe.ing.forEach(([name]) => {
+    const matched = owned.some(o => name.includes(o) || o.includes(name) || (name.includes("蛋") && o.includes("蛋")));
+    if(matched) hit++; else need.push(name);
+  });
+  const ratio = hit / recipe.ing.length;
+  let score = ratio * 100;
+  // 少补料、耗时短、低卡 给加权
+  score -= need.length * 9;
+  if(recipe.minutes <= state.limit) score += 4; else score -= 20;
+  if(state.lowcal) score += recipe.lowcal ? 12 : -8;
+  return { recipe, hit, need, ratio, score: Math.min(100, Math.max(4, Math.round(score))) };
+}
+
+function generate(){
+  const owned = splitList($("ingredients").value);
+  const avoids = splitList($("avoids").value);
+  if(!owned.length){ toast("先写几样冰箱里的食材吧"); $("ingredients").focus(); return; }
+
+  state.input = { ing: owned, avoids };
+  let pool = RECIPES.slice();
+
+  // 口味筛选（不限则不过滤，但同口味加权）
+  if(state.taste !== "不限"){
+    pool = pool.filter(r => r.tastes.includes(state.taste));
+  }
+  // 时长
+  pool = pool.filter(r => r.minutes <= state.limit);
+  // 忌口
+  const filtered = filterByAvoids(pool, avoids);
+  pool = filtered.list;
+  state.blocked = filtered.blocked;
+  if(!pool.length){ showNotice(tasteText(), avoids); return; }
+
+  const scored = pool.map(r => scoreRecipe(r, owned))
+                     .sort((a, b) => b.score - a.score || a.recipe.minutes - b.recipe.minutes);
+  state.page = 0;
+  state.results = scored;
+  render(scored.slice(0, 3), scored.length);
+}
+
+function tasteText(){
+  const parts = [];
+  if(state.taste !== "不限") parts.push(state.taste + "口味");
+  if(state.limit < 999) parts.push("时长 ≤ " + state.limit + " 分钟");
+  if(state.lowcal) parts.push("低卡优先");
+  return parts.join(" + ") || "当前条件";
+}
+
+function showNotice(condText, avoids){
+  $("outBox").innerHTML = `
+    <div class="ai-line">按「${condText}」${avoids.length ? `与忌口「${avoids.join("、")}」` : ""}筛选后，库里没有合适的菜谱了。</div>
+    <div class="empty" style="flex:1;min-height:320px">
+      <div class="art" aria-hidden="true">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#C08A2E" stroke-width="1.4" stroke-linecap="round">
+          <circle cx="12" cy="12" r="9" stroke="#F0DDBB"/>
+          <path d="M12 7.6v5.2"/><circle cx="12" cy="16.2" r="1"/>
+        </svg>
+      </div>
+      <h3>这个组合暂时配不出菜</h3>
+      <p>可以试着把口味改回「不限」、把时长放宽到 30 分钟，或者少勾一两样忌口，再点一次生成。</p>
+    </div>`;
+  $("emptyBox").hidden = true;
+  $("outBox").hidden = false;
+  $("againBtn").hidden = true;
+  $("copyAllBtn").hidden = true;
+  state.results = [];
+}
+
+function reroll(){
+  if(state.results.length <= 3){ toast("可选菜谱已经全部展示完了"); return; }
+  state.page = (state.page + 3) % state.results.length;
+  let list = state.results.slice(state.page, state.page + 3);
+  if(list.length < 3) list = list.concat(state.results.slice(0, 3 - list.length));
+  render(list, state.results.length, true);
+}
+
+/* ============================================================
+   4. 渲染
+   ============================================================ */
+function render(list, total, isReroll){
+  const { ing, avoids } = state.input;
+  const sumKcal = list.reduce((s, x) => s + x.recipe.kcal * state.people, 0);
+  const sumProtein = list.reduce((s, x) => s + x.recipe.protein * state.people, 0);
+  const usedSet = new Set();
+  list.forEach(x => x.recipe.ing.forEach(([n]) => {
+    if(ing.some(o => n.includes(o) || o.includes(n))) usedSet.add(n);
+  }));
+
+  const best = list.length ? list[0].hit : 0;
+  const tail = avoids.length
+    ? (state.blocked ? `；已按忌口「${avoids.join("、")}」排除 ${state.blocked} 道菜`
+                     : `；已核对忌口「${avoids.join("、")}」，没有菜谱命中`)
+    : "";
+  const head = (isReroll ? "换一批：再给你 3 个备选方案。" :
+    (total > list.length
+      ? `读到你手上有 <em>${ing.length}</em> 种食材，我从 ${total} 道候选里挑出下面 <em>${list.length}</em> 道，按食材匹配度从高到低排列`
+      : `符合条件的菜谱一共 <em>${total}</em> 道，都列在下面`))
+    + tail
+    + (best === 0 ? "。不过这些菜和你现在的食材对不上，建议先补一两样主料（如鸡蛋、豆腐、青菜）。" : "。");
+
+  $("outBox").innerHTML = `
+    <div class="ai-line">${head}</div>
+    <div class="stats">
+      <div class="stat"><b>${list.length}<small>道</small></b><span>推荐菜谱</span></div>
+      <div class="stat"><b>${usedSet.size}<small>/${ing.length}</small></b><span>用掉现有食材</span></div>
+      <div class="stat"><b>${Math.round(sumKcal)}<small>kcal</small></b><span>全桌热量估算</span></div>
+      <div class="stat"><b>${Math.round(sumProtein)}<small>g</small></b><span>蛋白质合计</span></div>
+    </div>
+    <div class="cards">
+      ${list.map((x, i) => recipeCard(x, i)).join("")}
+    </div>
+    <p class="hint">热量、蛋白质为按常见食材分量的估算值；份量为 ${state.people} 人份，可自行增减。</p>
+  `;
+  $("emptyBox").hidden = true;
+  $("outBox").hidden = false;
+  $("againBtn").hidden = false;
+  $("copyAllBtn").hidden = false;
+
+  // 绑定卡片按钮
+  document.querySelectorAll(".js-copy").forEach(b => {
+    b.onclick = () => {
+      const r = RECIPES.find(r => r.id === b.dataset.id);
+      copyText(recipeText(r));
+    };
+  });
+  document.querySelectorAll(".js-fav").forEach(b => {
+    const id = b.dataset.id;
+    if(isFav(id)) b.classList.add("on"), b.textContent = "已收藏";
+    b.onclick = () => {
+      toggleFav(id);
+      const on = isFav(id);
+      b.classList.toggle("on", on);
+      b.textContent = on ? "已收藏" : "收藏";
+      toast(on ? "已收藏这道菜" : "已取消收藏");
+    };
+  });
+}
+
+function recipeCard(x, i){
+  const r = x.recipe;
+  const ingRows = r.ing.map(([n, a]) => {
+    const have = x.need.indexOf(n) === -1;
+    return `<li class="${have ? "" : "miss"}"><span>${n}</span><span>${a}${have ? "" : " · 需补充"}</span></li>`;
+  }).join("");
+  return `
+  <article class="recipe">
+    <div class="recipe-top">
+      <div class="rno">${String(i + 1).padStart(2, "0")}</div>
+      <div class="rtitle">
+        <h3>${r.name}<span class="match">${x.hit ? "食材匹配 " + x.score + "%" : "需补充主料"}</span></h3>
+        <div class="meta">
+          <span class="tag good">${r.tastes[0]}</span>
+          <span class="tag">${r.minutes} 分钟</span>
+          <span class="tag">${r.difficulty}</span>
+          <span class="tag">命中 ${x.hit}/${r.ing.length} 种</span>
+        </div>
+      </div>
+    </div>
+    <div class="recipe-body">
+      <div class="grid2">
+        <div>
+          <div class="block-t">用料</div>
+          <ul class="ing">${ingRows}<li><span>基础调料</span><span>${r.pantry}</span></li></ul>
+        </div>
+        <div>
+          <div class="block-t">做法</div>
+          <ol class="steps">${r.steps.map(s => `<li>${s}</li>`).join("")}</ol>
+        </div>
+      </div>
+      <div class="nutri">
+        <span><b>${r.kcal}</b>kcal / 人</span>
+        <span><b>${r.protein}</b>g 蛋白质</span>
+        <span><b>${r.fat}</b>g 脂肪</span>
+        <span>${r.lowcal ? "少油做法" : "常规做法"}</span>
+      </div>
+      <div class="note">小贴士：${r.tip}</div>
+      <div class="rfoot">
+        <button class="js-copy" data-id="${r.id}" type="button">复制这道菜</button>
+        <button class="js-fav" data-id="${r.id}" type="button">收藏</button>
+      </div>
+    </div>
+  </article>`;
+}
+
+function recipeText(r){
+  return `【${r.name}】${r.tastes.join("/")} · ${r.minutes} 分钟 · ${r.difficulty}
+用料：${r.ing.map(i => i[0] + " " + i[1]).join("，")}
+调料：${r.pantry}
+做法：
+${r.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}
+营养：约 ${r.kcal} kcal、蛋白质 ${r.protein} g、脂肪 ${r.fat} g（每人份）
+小贴士：${r.tip}`;
+}
+
+function copyText(text){
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(text).then(() => toast("已复制到剪贴板")).catch(() => fallbackCopy(text));
+  }else fallbackCopy(text);
+}
+function fallbackCopy(text){
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.left = "-9999px";
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); toast("已复制到剪贴板"); }
+  catch(e){ toast("复制失败，请长按手动选择文本"); }
+  document.body.removeChild(ta);
+}
+
+/* ============================================================
+   5. 收藏（localStorage）
+   ============================================================ */
+function getFavs(){ try{ return JSON.parse(localStorage.getItem("zcs_favs") || "[]"); }catch(e){ return []; } }
+function isFav(id){ return getFavs().indexOf(id) > -1; }
+function toggleFav(id){
+  const list = getFavs();
+  const i = list.indexOf(id);
+  if(i > -1) list.splice(i, 1); else list.push(id);
+  try{ localStorage.setItem("zcs_favs", JSON.stringify(list)); }catch(e){}
+}
+
+/* ============================================================
+   6. 交互绑定
+   ============================================================ */
+$("chips").addEventListener("click", e => {
+  const b = e.target.closest(".chip");
+  if(!b) return;
+  const ta = $("ingredients");
+  const cur = splitList(ta.value);
+  const name = b.textContent.trim();
+  if(cur.indexOf(name) > -1){
+    ta.value = cur.filter(x => x !== name).join("、");
+    b.classList.remove("on");
+  }else{
+    ta.value = cur.concat(name).join("、");
+    b.classList.add("on");
+  }
+});
+
+$("tasteSeg").addEventListener("click", e => {
+  const b = e.target.closest("button[data-taste]");
+  if(!b) return;
+  [...$("tasteSeg").children].forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+  state.taste = b.dataset.taste;
+});
+
+$("plus").onclick = () => { state.people = Math.min(8, state.people + 1); $("people").textContent = state.people + " 人"; };
+$("minus").onclick = () => { state.people = Math.max(1, state.people - 1); $("people").textContent = state.people + " 人"; };
+$("timeLimit").onchange = e => { state.limit = Number(e.target.value); };
+
+function toggleLowcal(){
+  state.lowcal = !state.lowcal;
+  $("track").classList.toggle("on", state.lowcal);
+  $("lowcalSwitch").setAttribute("aria-checked", String(state.lowcal));
+}
+$("lowcalSwitch").onclick = toggleLowcal;
+$("lowcalSwitch").onkeydown = e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); toggleLowcal(); } };
+
+$("genBtn").onclick = generate;
+$("againBtn").onclick = reroll;
+
+$("copyAllBtn").onclick = () => {
+  if(!state.results.length) return;
+  const shown = [...$("outBox").querySelectorAll(".recipe")].length;
+  const ids = [...$("outBox").querySelectorAll(".js-copy")].map(b => b.dataset.id);
+  const texts = ids.map(id => recipeText(RECIPES.find(r => r.id === id)));
+  copyText(`智厨小助手 · 今日菜单（${state.people} 人份）\n\n` + texts.join("\n\n" + "—".repeat(24) + "\n\n"));
+};
+
+$("resetBtn").onclick = () => {
+  $("ingredients").value = "";
+  $("avoids").value = "";
+  [...$("chips").children].forEach(c => c.classList.remove("on"));
+  state.people = 2; state.taste = "不限"; state.limit = 30; state.lowcal = false;
+  $("people").textContent = "2 人";
+  $("timeLimit").value = "30";
+  $("track").classList.remove("on");
+  [...$("tasteSeg").children].forEach((b, i) => b.classList.toggle("on", i === 0));
+  $("outBox").hidden = true; $("outBox").innerHTML = "";
+  $("emptyBox").hidden = false;
+  $("againBtn").hidden = true; $("copyAllBtn").hidden = true;
+  state.results = [];
+};
+
+// 演示数据预填（首次访问时给出示例，便于快速体验）
+(function seed(){
+  $("ingredients").value = "鸡蛋、西红柿、土豆、青菜、香菇";
+  $("avoids").value = "不吃香菜";
+})();
+</script>
+</body>
+</html>
