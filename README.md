@@ -9,10 +9,9 @@
 
 ## 一、在线访问
 
-- 作品链接（GitHub Pages）：https://用户名.github.io/zhichu-xiaozhushou/
-- 源代码仓库：https://github.com/用户名/zhichu-xiaozhushou
+- 作品链接（GitHub Pages）：https://renjiayun.github.io/zhichu-xiaozhushou/
+- 源代码仓库：https://github.com/renjiayun/zhichu-xiaozhushou
 
-> 提交前请把「用户名」替换为实际 GitHub 用户名。
 
 ## 二、本地运行
 
@@ -82,4 +81,4 @@
 1. 新建 Public 仓库，上传 `index.html` 与 `README.md`；
 2. 仓库 **Settings → Pages**，Source 选择 *Deploy from a branch*；
 3. 分支选 `main`，目录选 `/(root)`，保存；
-4. 等待 1～3 分钟，页面顶部出现 `https://用户名.github.io/仓库名/` 即可访问。
+4. 等待 1～3 分钟，页面顶部出现 `https://renjiayun.github.io/zhichu-xiaozhushou/` 即可访问。
